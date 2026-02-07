@@ -1,0 +1,42 @@
+{
+  "template": "https://github.com/backofficedev/cookiecutter_chartbook",
+  "commit": "a52959a3dfb4296855c3d667463f0b8110424e66",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "project_name": "P5. Can ChatGPT Forecast Stock Price Movements? Return Predictability and Large Language Models",
+      "project_slug": "p05_zhu_pan_2026",
+      "project_description": "This paper demonstrates the capability of large language models (LLMs) like ChatGPT to predict stock market reactions from news headlines.",
+      "author_name": "Langxuan Pan, Yiguang Zhu",
+      "author_email": "dylanpan@uchicago.edu, yiguang722@uchicago.edu",
+      "python_version": "3.12",
+      "environment_manager": "pip",
+      "include_latex_reports": "True",
+      "include_jupyter_notebooks": "True",
+      "include_r_scripts": "False",
+      "include_stata_scripts": "False",
+      "include_chartbook": "True",
+      "include_github_actions": "True",
+      "include_fred": "False",
+      "include_fed_yield_curve": "False",
+      "include_ofr_api": "False",
+      "include_bloomberg": "False",
+      "include_crsp_stock": "True",
+      "include_crsp_compustat": "False",
+      "_copy_without_render": [
+        "*.bst",
+        "*.sty",
+        "*.eps",
+        "*.ipe",
+        "*.png",
+        "*.pdf",
+        "*.tex",
+        "*.bib",
+        ".github/workflows/*.yml"
+      ],
+      "_template": "https://github.com/backofficedev/cookiecutter_chartbook",
+      "_commit": "a52959a3dfb4296855c3d667463f0b8110424e66"
+    }
+  },
+  "directory": null
+}
