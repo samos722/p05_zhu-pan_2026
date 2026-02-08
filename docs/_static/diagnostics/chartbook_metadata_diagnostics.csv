@@ -1,0 +1,4 @@
+Name,Metadata Complete,Object Type,Identifier,Pipeline,Missing Fields,Page Link
+Can ChatGPT Forecast Stock Price Movements? Return Predictability and Large Language Models,False,pipeline,P5,P5,"build_commands, os_compatibility, git_repo_URL",../index.html
+crsp_daily,False,dataframe,crsp_daily,P5,"dataframe_name, short_description_df, links_to_data_providers, topic_tags",../dataframes/P5/crsp_daily.html
+CRSP Daily Returns,False,chart,crsp_returns,P5,"topic_tags, data_frequency, observation_period, lag_in_data_release, data_release_timing, units",../charts/P5.crsp_returns.html
