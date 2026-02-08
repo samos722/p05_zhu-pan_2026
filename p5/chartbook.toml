@@ -1,0 +1,48 @@
+[config]
+type = "pipeline"
+chartbook_format_version = "0.0.2"
+
+[site]
+title = "Can ChatGPT Forecast Stock Price Movements? Return Predictability and Large Language Models"
+author = "samoszhu"
+copyright = "2025"
+logo_path = ""
+favicon_path = ""
+
+[pipeline]
+id = "P5"
+pipeline_name = "Can ChatGPT Forecast Stock Price Movements? Return Predictability and Large Language Models"
+pipeline_description = "This paper demonstrates the capability of large language models (LLMs) like ChatGPT to predict stock market reactions from news headlines."
+lead_pipeline_developer = "samoszhu"
+contributors = ["samoszhu"]
+software_modules_command = "module load anaconda3/3.11.4 TeXLive/2023"
+runs_on_grid_or_windows_or_other = "Windows/Linux/MacOS"
+git_repo_URL = ""
+README_file_path = "./README.md"
+
+
+
+
+
+[dataframes]
+[dataframes.crsp_daily]
+
+data_sources = ["CRSP"]
+data_providers = ["WRDS"]
+how_is_pulled = "Pulled via wrds python package in src/pull_CRSP_stock.py"
+path_to_parquet_data = "_data/crsp_daily.parquet"
+dataframe_docs_str = "Daily CRSP stock returns pulled from WRDS for exploratory analysis."
+date_col="date"
+value_col="ret"
+
+
+[charts]
+
+[charts.crsp_returns]
+
+chart_name = "CRSP Daily Returns"
+short_description_chart = "Simple exploratory time series of daily stock returns from CRSP"
+dataframe_id = "crsp_daily"
+path_to_html_chart = "_output/crsp_returns.html"
+chart_docs_str = "Exploratory Plotly time-series chart of daily CRSP returns, saved as an interactive HTML file."
+
