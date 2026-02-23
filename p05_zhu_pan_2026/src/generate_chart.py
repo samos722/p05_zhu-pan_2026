@@ -11,21 +11,42 @@ def chart_crsp():
 
 
     permno = df["permno"].dropna().iloc[0]
-    d = df.loc[df["permno"] == permno, ["date", "altprc"]].dropna().sort_values("date")
+    d = df.loc[df["permno"] == permno, ["date", "openprc"]].dropna().sort_values("date")
 
-    fig = px.line(d, x="date", y="altprc", title=f"CRSP: Price over time (permno={int(permno)})")
+    fig = px.line(d, x="date", y="openprc", title=f"CRSP: Price over time (permno={int(permno)})")
     fig.show()
     fig.write_html(OUT_DIR / "crsp_price_timeseries.html", include_plotlyjs="cdn")
 
 
-def chart_ravenpack():
-    df = pd.read_parquet(DATA_DIR / "ravenpack_dj_equities.parquet")
 
-    d = df.loc[df["permno"] == 14593, ["date", "sentiment_score"]].dropna().sort_values("date")
+def chart_ravenpack(ticker="PRD.LN"):
+    df = pd.read_parquet(
+        DATA_DIR / "ravenpack_dj_equities.parquet",
+        columns=["ticker", "rpa_date_utc", "relevance"],  # ✅ existing columns
+    )
 
-    fig = px.line(d, x="date", y="sentiment_score", title=f"RavenPack: Sentiment Score over time (permno=14593)")
+    d = (
+        df.loc[
+            (df["ticker"] == ticker)
+            & (df["rpa_date_utc"] >= "2021-01-01")
+            & (df["rpa_date_utc"] <= "2021-06-30"),
+            ["rpa_date_utc", "relevance"],
+        ]
+        .dropna()
+        .groupby("rpa_date_utc", as_index=False)
+        .mean()
+        .sort_values("rpa_date_utc")
+    )
+
+    fig = px.line(
+        d,
+        x="rpa_date_utc",
+        y="relevance",
+        title=f"RavenPack: Daily Avg Relevance ({ticker}, 6-month sample)",
+    )
     fig.show()
-    fig.write_html(OUT_DIR / "ravenpack_sentiment_timeseries.html", include_plotlyjs="cdn")
+    fig.write_html(OUT_DIR / f"ravenpack_relevance_{ticker.replace('.', '_')}.html",
+                   include_plotlyjs="cdn")
 
 
 if __name__ == "__main__":
