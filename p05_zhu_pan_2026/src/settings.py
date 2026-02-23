@@ -147,9 +147,11 @@ if "STATA_EXE" in cli_vars:
 else:
     defaults["STATA_EXE"] = get_stata_exe()
 
-## Dates
-defaults["START_DATE"] = datetime.strptime("1913-01-01", "%Y-%m-%d")
-defaults["END_DATE"] = datetime.strptime("2024-12-31", "%Y-%m-%d")
+
+
+## Dates: 2021-10-01 to 2024-05-31
+defaults["START_DATE"] = datetime.strptime("2021-10-01", "%Y-%m-%d")
+defaults["END_DATE"] = datetime.strptime("2024-05-31", "%Y-%m-%d")
 
 
 ## File paths

@@ -94,12 +94,7 @@ def task_pull_CRSP_stock():
             "python src/pull_CRSP_stock.py",
         ],
         "targets": [
-            Path(DATA_DIR) / file
-            for file in [
-                ## src/pull_CRSP_stock.py
-                "CRSP_MSF_INDEX_INPUTS.parquet",
-                "CRSP_MSIX.parquet",
-            ]
+            Path(DATA_DIR) / "CRSP_daily_stock.parquet",
         ],
         "file_dep": [
             "./src/settings.py",
