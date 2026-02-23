@@ -104,18 +104,40 @@ def task_pull_CRSP_stock():
         # case WRDS asks for credentials.
     }
 
+
+def task_pull_ravenpack_dj():
+    """Pull Ravenpack data from WRDS and save to disk"""
+
+    return {
+        "actions": [
+            "python src/settings.py",
+            "python src/pull_ravenpack_dj.py",
+        ],
+        "targets": [
+            Path(DATA_DIR) / "ravenpack_dj_equities.parquet",
+        ],
+        "file_dep": [
+            "./src/settings.py",
+            "./src/pull_ravenpack_dj.py",
+        ],
+        "verbosity": 2,  # Print everything immediately. This is important in
+        # case WRDS asks for credentials.
+    }
+
+
 def task_generate_exploratory_charts():
     return {
         "actions": ["python src/generate_chart.py"],
         "file_dep": [
-            "_data/CRSP_monthly_stock.parquet",
+            "_data/CRSP_daily_stock.parquet",
+            "_data/ravenpack_dj_equities.parquet",
         ],
         "targets": [
             "_output/crsp_price_timeseries.html",
+            "_output/ravenpack_sentiment_timeseries.html",
         ],
         "clean": True,
     }
-
 
 
 
