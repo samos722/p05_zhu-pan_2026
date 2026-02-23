@@ -23,7 +23,7 @@ def pull_CRSP_daily(
     Universe:
     - Common stocks: shrcd in (10, 11)
     - Exchanges: NYSE, NASDAQ, AMEX (exchcd in 1,2,3)
-    - Variables: date, permno, ret (daily stock return), open price, close price, volume
+    - Variables: date, permno, ret (daily stock return), open price, close price, volume, shrout
 
     Parameters
     ----------
@@ -56,7 +56,8 @@ def pull_CRSP_daily(
             d.ret,
             d.openprc,
             d.prc as closeprc,
-            d.vol
+            d.vol,
+            d.shrout
         from crsp.dsf as d
         join crsp.dsenames as n
           on d.permno = n.permno
