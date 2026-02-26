@@ -22,7 +22,7 @@ def chart_crsp():
 def chart_ravenpack(ticker="PRD.LN"):
     df = pd.read_parquet(
         DATA_DIR / "ravenpack_dj_equities.parquet",
-        columns=["ticker", "rpa_date_utc", "relevance"],  # ✅ existing columns
+        columns=["ticker", "rpa_date_utc", "relevance"], 
     )
 
     d = (
