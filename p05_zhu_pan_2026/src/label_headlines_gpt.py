@@ -1,24 +1,24 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
 import pandas as pd
+import polars as pl
 import openai
 
 from settings import config
 
-
 DATA_DIR = Path(config("DATA_DIR"))
 RAW_RAVENPACK_PATH = DATA_DIR / "ravenpack_dj_equities.parquet"
+INTRADAY_STORY_PATH = DATA_DIR / "clean" / "ravenpack_intraday_story.parquet"
 INTERIM_PATH = DATA_DIR / "interim" / "gpt_labels.parquet"
 
 OPENAI_API_KEY = config("OPENAI_API_KEY")
 
-
-openai.api_key = OPENAI_API_KEY
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 
 @dataclass
@@ -30,6 +30,7 @@ class GPTLabel:
     score: float
     model: str
     created_at: str  # ISO timestamp
+    raw_response: str
     prompt_version: str = "v1"
 
 
@@ -66,21 +67,34 @@ def load_already_labeled() -> pd.DataFrame:
     return pd.DataFrame(
         columns=[
             "rp_story_id",
+            "ticker",
             "headline",
             "label",
             "score",
             "model",
             "created_at",
-            "prompt_version",
             "raw_response",
+            "prompt_version",
         ]
     )
 
 
 def sample_headlines(n: int = 300) -> pd.DataFrame:
-    """Sample unique headlines by rp_story_id from raw RavenPack data."""
-    df = pd.read_parquet(RAW_RAVENPACK_PATH, columns=["rp_story_id", "headline", "ticker"])
+    """Sample unique headlines by rp_story_id (both intraday and overnight).
+
+    Joins raw RavenPack headlines with the story table to label headlines
+    that have a valid trading date assignment.
+    """
+    stories = pl.read_parquet(
+        INTRADAY_STORY_PATH, columns=["rp_story_id"]
+    )
+    valid_ids = set(stories["rp_story_id"].unique().to_list())
+
+    df = pd.read_parquet(
+        RAW_RAVENPACK_PATH, columns=["rp_story_id", "headline", "ticker"]
+    )
     df = df.dropna(subset=["headline"]).drop_duplicates(subset=["rp_story_id"])
+    df = df[df["rp_story_id"].isin(valid_ids)]
 
     existing = load_already_labeled()
     if not existing.empty:
@@ -96,7 +110,7 @@ def sample_headlines(n: int = 300) -> pd.DataFrame:
 
 def call_gpt_on_headlines(
     df_sample: pd.DataFrame,
-    model: str = "gpt-3.5-turbo",
+    model: str = "gpt-4o-mini",
 ) -> List[GPTLabel]:
     results: List[GPTLabel] = []
     for _, row in df_sample.iterrows():
@@ -106,7 +120,7 @@ def call_gpt_on_headlines(
         company = ticker if ticker else "the company"
         prompt = build_prompt(headline, company)
 
-        resp = openai.ChatCompletion.create(
+        resp = client.chat.completions.create(
             model=model,
             temperature=0.0,
             messages=[
@@ -117,7 +131,7 @@ def call_gpt_on_headlines(
                 {"role": "user", "content": prompt},
             ],
         )
-        raw_text = resp["choices"][0]["message"]["content"]
+        raw_text = resp.choices[0].message.content
         label = parse_label(raw_text)
         score = label_to_score(label)
 
@@ -129,8 +143,8 @@ def call_gpt_on_headlines(
                 label=label,
                 score=score,
                 model=model,
-                created_at=datetime.utcnow().isoformat(),
-                prompt_version="v1",
+                created_at=datetime.now(timezone.utc).isoformat(),
+                raw_response=raw_text,
             )
         )
     return results
@@ -142,9 +156,6 @@ def save_results(new_labels: List[GPTLabel]) -> None:
         return
 
     df_new = pd.DataFrame([l.__dict__ for l in new_labels])
-    # raw_response was not stored in dataclass; add empty column for now
-    df_new["raw_response"] = pd.NA
-
     combined = pd.concat([existing, df_new], ignore_index=True)
     combined = combined.drop_duplicates(subset=["rp_story_id"], keep="last")
 
@@ -158,7 +169,7 @@ def main(sample_size: int = 300) -> None:
         print("No new headlines to label (all rp_story_id already in interim file).")
         return
 
-    print(f"Labeling {len(df_sample):,} headlines with GPT...")
+    print(f"Labeling {len(df_sample):,} intraday headlines with GPT...")
     labels = call_gpt_on_headlines(df_sample)
     save_results(labels)
     print(f"Saved labels for {len(labels):,} headlines to {INTERIM_PATH}")
@@ -166,4 +177,3 @@ def main(sample_size: int = 300) -> None:
 
 if __name__ == "__main__":
     main(sample_size=300)
-
