@@ -11,6 +11,17 @@ DATA_DIR = Path(config("DATA_DIR"))
 WRDS_USERNAME = config("WRDS_USERNAME")
 START_DATE = config("START_DATE")  # 2021-10-01
 END_DATE = config("END_DATE")  # 2024-05-31
+CRSP_PATH = DATA_DIR / "CRSP_daily_stock.parquet"
+
+
+def _load_crsp_tickers(crsp_path: Path = CRSP_PATH) -> set:
+    """Load unique tickers from CRSP (already filtered by shrcd 10,11 and exchcd 1,2,3)."""
+    if not crsp_path.exists():
+        raise FileNotFoundError(
+            f"CRSP file not found: {crsp_path}. Run pull_CRSP_stock.py first."
+        )
+    df = pd.read_parquet(crsp_path, columns=["ticker"])
+    return set(df["ticker"].dropna().astype(str).str.strip().unique())
 
 
 def pull_ravenpack_dj(
@@ -19,15 +30,20 @@ def pull_ravenpack_dj(
     wrds_username=WRDS_USERNAME,
     relevance_threshold=100,
     min_similarity_days=90,
+    crsp_path: Path = CRSP_PATH,
     out_path=None,
 ):
     """
     Pull RavenPack RPA 1.0 Equities (Dow Jones + PR Edition) headlines data.
+    Only for stocks in CRSP universe (shrcd 10,11; exchcd 1,2,3).
+    Filters: relevance = relevance_threshold, event_similarity_days > min_similarity_days.
     Writes year-by-year to parquet to avoid memory overflow.
 
     Parameters
     ----------
     start_date, end_date, wrds_username, relevance_threshold, min_similarity_days
+    crsp_path : Path
+        Path to CRSP_daily_stock.parquet (run pull_CRSP_stock.py first).
     out_path : Path or str
         Output parquet path. Required.
 
@@ -42,6 +58,12 @@ def pull_ravenpack_dj(
     end_str = end_dt.strftime("%Y-%m-%d")
     ts_start = f"{start_str}T00:00:00"
     ts_end = f"{end_str}T23:59:59"
+
+    crsp_tickers = _load_crsp_tickers(crsp_path)
+    if not crsp_tickers:
+        raise ValueError("CRSP has no tickers. Check CRSP_daily_stock.parquet.")
+    tickers_sql = ", ".join(f"'{str(t).replace(chr(39), chr(39)+chr(39))}'" for t in sorted(crsp_tickers))
+    print(f"Filtering to {len(crsp_tickers):,} CRSP tickers")
 
     db = wrds.Connection(wrds_username=wrds_username)
     writer = None
@@ -64,6 +86,7 @@ def pull_ravenpack_dj(
               and e.relevance = {relevance_threshold}
               and e.event_similarity_days > {min_similarity_days}
               and e.timestamp_utc between '{ts_start}' and '{ts_end}'
+              and m.ticker in ({tickers_sql})
         """
         df_y = db.raw_sql(sql, date_cols=["timestamp_utc", "rpa_date_utc"])
         df_y["date"] = df_y["timestamp_utc"].dt.date
