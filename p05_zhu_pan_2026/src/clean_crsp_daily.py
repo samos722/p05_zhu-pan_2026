@@ -4,6 +4,7 @@ import polars as pl
 
 from settings import config
 
+
 DATA_DIR = Path(config("DATA_DIR"))
 
 
@@ -34,5 +35,6 @@ def clean_crsp_daily(raw_path: Path = RAW_PATH, out_path: Path = OUT_PATH) -> pl
 
 
 if __name__ == "__main__":
+    print(f"Cleaning CRSP daily stock data: {RAW_PATH} -> {OUT_PATH}")
     df_clean = clean_crsp_daily()
     print(f"Saved: {OUT_PATH} | rows={len(df_clean):,}")
