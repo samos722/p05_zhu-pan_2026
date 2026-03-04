@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import polars as pl
+from rapidfuzz.distance import DamerauLevenshtein
 
 from settings import config
 
@@ -114,15 +115,66 @@ def build_news_intraday_story(
     t15 = (pl.col("timestamp_et") + pl.duration(minutes=15)).dt.truncate("1m")
     df = df.with_columns(t15.alias("t15"))
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
     df = df.collect()
-    df.write_parquet(out_path)
     return df
+
+
+def _headline_similarity(a: str, b: str) -> float:
+    """Optimal String Alignment (Restricted Damerau-Levenshtein) similarity in [0, 1]."""
+    a, b = (a or "").strip(), (b or "").strip()
+    if not a and not b:
+        return 1.0
+    if not a or not b:
+        return 0.0
+    return DamerauLevenshtein.normalized_similarity(a, b)
+
+
+def deduplicate_similar_headlines(
+    df_story: pl.DataFrame,
+    raw_path: Path = RAW_PATH,
+    sim_threshold: float = 0.6,
+) -> pl.DataFrame:
+    """
+    Remove duplicate/similar headlines per (ticker, date) per Lopez-Lira, Tang, Zhu (2025).
+
+    Uses Optimal String Alignment (Restricted Damerau-Levenshtein); removes subsequent
+    headlines with similarity > sim_threshold to any already-kept headline.
+    """
+    raw = pl.read_parquet(raw_path, columns=["rp_story_id", "headline"])
+    df = df_story.join(raw, on="rp_story_id", how="inner")
+    # sort by timestamp for "subsequent" order
+    df = df.sort(["ticker", "date", "timestamp_et"])
+
+    keep_ids = []
+    for _keys, sub in df.group_by(["ticker", "date"]):
+        sub = sub.sort("timestamp_et")
+        rows = sub.iter_rows(named=True)
+        kept_headlines: list[str] = []
+        for row in rows:
+            h = str(row.get("headline") or "")
+            rp_id = row["rp_story_id"]
+            is_dup = False
+            for kh in kept_headlines:
+                if _headline_similarity(h, kh) > sim_threshold:
+                    is_dup = True
+                    break
+            if not is_dup:
+                keep_ids.append(rp_id)
+                kept_headlines.append(h)
+
+    keep_set = set(keep_ids)
+    out = df_story.filter(pl.col("rp_story_id").is_in(keep_set))
+    return out
 
 
 if __name__ == "__main__":
     df_firmday = clean_ravenpack_firmday()
     print(f"Saved: {OUT_PATH} | rows={len(df_firmday):,}")
     df_story = build_news_intraday_story()
+    n_before = len(df_story)
+    df_story = deduplicate_similar_headlines(df_story)
+    n_after = len(df_story)
+    OUT_PATH_STORY.parent.mkdir(parents=True, exist_ok=True)
+    df_story.write_parquet(OUT_PATH_STORY)
     n_intra = df_story.filter(pl.col("is_intraday")).height
-    print(f"Saved: {OUT_PATH_STORY} | rows={len(df_story):,} (intraday={n_intra:,})")
+    print(f"Saved: {OUT_PATH_STORY} | rows={n_after:,} (dropped {n_before - n_after:,} similar, intraday={n_intra:,})")

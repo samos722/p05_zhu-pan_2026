@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 
 import pandas as pd
 import pyarrow as pa
@@ -68,6 +69,7 @@ def pull_ravenpack_dj(
     db = wrds.Connection(wrds_username=wrds_username)
     writer = None
     total = 0
+    t_start = time.time()
 
     for year in range(start_dt.year, end_dt.year + 1):
         y_start = f"{year}-01-01" if year > start_dt.year else start_str
@@ -75,20 +77,24 @@ def pull_ravenpack_dj(
         tbl = f"ravenpack_dj.rpa_djpr_equities_{year}"
         sql = f"""
             select e.rp_entity_id, e.rpa_date_utc, e.timestamp_utc, e.rp_story_id,
-                   e.relevance, e.event_similarity_days, e.source_name, e.headline,
-                   m.ticker, m.cusip
+                e.relevance, e.event_similarity_days, e.source_name, e.headline,
+                m.ticker, m.cusip, e.news_type, e.category
             from {tbl} e
-            left join (
+            inner join (
                 select rp_entity_id, ticker, cusip
                 from ravenpack_common.wrds_rpa_company_mappings
             ) m on e.rp_entity_id = m.rp_entity_id
             where e.rpa_date_utc between '{y_start}'::date and '{y_end}'::date
-              and e.relevance = {relevance_threshold}
-              and e.event_similarity_days > {min_similarity_days}
-              and e.timestamp_utc between '{ts_start}' and '{ts_end}'
-              and m.ticker in ({tickers_sql})
+            and e.relevance = {relevance_threshold}
+            and e.event_similarity_days > {min_similarity_days}
+            and e.timestamp_utc between '{ts_start}' and '{ts_end}'
+            and m.ticker in ({tickers_sql})
+            and lower(e.news_type) in ('full-article', 'press-release')
+            and lower(e.category) not in ('stock-gain', 'stock-loss')
         """
+        t0 = time.time()
         df_y = db.raw_sql(sql, date_cols=["timestamp_utc", "rpa_date_utc"])
+        t_query = time.time() - t0
         df_y["date"] = df_y["timestamp_utc"].dt.date
 
         table = pa.Table.from_pandas(df_y, preserve_index=False)
@@ -96,10 +102,11 @@ def pull_ravenpack_dj(
             writer = pq.ParquetWriter(out_path, table.schema)
         writer.write_table(table)
         total += len(df_y)
-        print(f"  {year}: {len(df_y):,} rows")
+        print(f"  {year}: {len(df_y):,} rows (query {t_query:.1f}s)")
 
     db.close()
     writer.close()
+    print(f"Total elapsed: {time.time() - t_start:.1f}s")
     return total
 
 
