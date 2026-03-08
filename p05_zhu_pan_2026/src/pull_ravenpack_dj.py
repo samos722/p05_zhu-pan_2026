@@ -85,21 +85,12 @@ def pull_ravenpack_dj(
                 from ravenpack_common.wrds_rpa_company_mappings
             ) m on e.rp_entity_id = m.rp_entity_id
             where e.rpa_date_utc between '{y_start}'::date and '{y_end}'::date
-<<<<<<< HEAD
             and e.relevance = {relevance_threshold}
             and e.event_similarity_days > {min_similarity_days}
             and e.timestamp_utc between '{ts_start}' and '{ts_end}'
             and m.ticker in ({tickers_sql})
             and lower(e.news_type) in ('full-article', 'press-release')
             and lower(e.category) not in ('stock-gain', 'stock-loss')
-=======
-              and e.relevance = {relevance_threshold}
-              and e.event_similarity_days > {min_similarity_days}
-              and e.timestamp_utc between '{ts_start}' and '{ts_end}'
-              and m.ticker in ({tickers_sql})
-              and lower(e.news_type) in ('full-article', 'press-release')
-              and lower(e.category) not in ('stock-gain', 'stock-loss')
->>>>>>> origin/main
         """
         t0 = time.time()
         df_y = db.raw_sql(sql, date_cols=["timestamp_utc", "rpa_date_utc"])
