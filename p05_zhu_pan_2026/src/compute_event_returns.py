@@ -153,8 +153,8 @@ def aggregate_firm_day(events: pl.DataFrame) -> pl.DataFrame:
         )
     )
     firm_day = firm_day.with_columns(
-        pl.when(pl.col("avg_score") > 0.5).then(pl.lit("positive"))
-        .when(pl.col("avg_score") < 0.5).then(pl.lit("negative"))
+        pl.when(pl.col("avg_score") > 0).then(pl.lit("positive"))
+        .when(pl.col("avg_score") < 0).then(pl.lit("negative"))
         .otherwise(pl.lit("neutral"))
         .alias("sentiment"),
     )

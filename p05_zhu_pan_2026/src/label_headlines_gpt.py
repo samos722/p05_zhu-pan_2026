@@ -57,8 +57,8 @@ def parse_label(raw_text: str) -> str:
 
 
 def label_to_score(label: str) -> float:
-    mapping = {"YES": 1.0, "NO": 0.0, "UNKNOWN": 0.5}
-    return mapping.get(label, 0.5)
+    mapping = {"YES": 1.0, "NO": -1.0, "UNKNOWN": 0.0}
+    return mapping.get(label, 0.0)
 
 
 def load_already_labeled() -> pd.DataFrame:

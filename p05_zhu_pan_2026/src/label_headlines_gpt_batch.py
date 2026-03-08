@@ -77,7 +77,7 @@ def _parse_label(raw_text: str) -> str:
 
 
 def _label_to_score(label: str) -> float:
-    return {"YES": 1.0, "NO": 0.0, "UNKNOWN": 0.5}.get(label, 0.5)
+    return {"YES": 1.0, "NO": -1.0, "UNKNOWN": 0.0}.get(label, 0.0)
 
 
 def _load_batch_state() -> list:
