@@ -7,8 +7,8 @@ import webbrowser
 from settings import config
 
 DATA_DIR = Path(config("DATA_DIR"))
-SAMPLE_START = "2021-10-01"
-SAMPLE_END = "2024-05-31"
+SAMPLE_START = "2024-05-31"
+SAMPLE_END = "2025-12-31"
 
 
 def _get_taq_trading_dates() -> pd.Series:
