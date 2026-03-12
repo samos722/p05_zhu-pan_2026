@@ -4,7 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-DATA_DIR = Path("_data")
+from settings import config
+
+DATA_DIR = Path(config("DATA_DIR")).resolve()
 
 def _divide_intraday_overnight():
     """Split intraday portfolio returns into intraday and overnight components."""
@@ -400,8 +402,8 @@ def plot_like_paper(cumret_long_short, cumret_not_small, cumret_price5, cumret_m
 
     fig.tight_layout()
 
-    output_dir = Path("_output")
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path(config("OUTPUT_DIR")).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_dir / "cumulative_returns_paper_style.png", dpi=300, bbox_inches="tight")
 
     plt.show()
