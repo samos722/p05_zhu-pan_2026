@@ -158,70 +158,106 @@ def _merge_intraday(intraday_headlines):
 def calculate_portfolio_metrics(
     df: pd.DataFrame,
     portfolio: str = "long_short",   # "long_short" | "long_only" | "short_only"
-    min_long: int = 2,               # paper uses 2 for LS legs
+    min_long: int = 2,
     min_short: int = 2,
     annualization: int = 252,
 ) -> dict:
-
-
     d = df.copy()
     d["date"] = pd.to_datetime(d["date"])
     d["signal"] = d["label"].map({"YES": 1, "NO": -1, "UNKNOWN": 0})
 
-    # Drop neutrals
+    # drop neutral observations
     d = d[d["signal"] != 0].copy()
 
-    # Portfolio selection + per-stock portfolio return
     if portfolio == "long_short":
-        # require both legs exist (paper-style)
-        by_date = d.groupby("date")["signal"]
-        long_n = by_date.apply(lambda x: (x > 0).sum())
-        short_n = by_date.apply(lambda x: (x < 0).sum())
-        valid_days = long_n[long_n >= min_long].index.intersection(
-            short_n[short_n >= min_short].index
+        # require enough longs and shorts on each day
+        long_counts = d[d["signal"] > 0].groupby("date").size()
+        short_counts = d[d["signal"] < 0].groupby("date").size()
+
+        valid_days = long_counts[long_counts >= min_long].index.intersection(
+            short_counts[short_counts >= min_short].index
         )
         d = d[d["date"].isin(valid_days)].copy()
 
-        d["port_initial"] = d["signal"] * d["initial_reaction"]
-        d["port_drift"]   = d["signal"] * d["drift"]
+        # equal-weight long leg and short leg separately
+        long_initial = (
+            d[d["signal"] > 0]
+            .groupby("date")["initial_reaction"]
+            .mean()
+            .rename("long_initial")
+        )
+        short_initial = (
+            d[d["signal"] < 0]
+            .groupby("date")["initial_reaction"]
+            .mean()
+            .rename("short_initial")
+        )
+        long_drift = (
+            d[d["signal"] > 0]
+            .groupby("date")["drift"]
+            .mean()
+            .rename("long_drift")
+        )
+        short_drift = (
+            d[d["signal"] < 0]
+            .groupby("date")["drift"]
+            .mean()
+            .rename("short_drift")
+        )
+
+        daily = pd.concat(
+            [long_initial, short_initial, long_drift, short_drift],
+            axis=1
+        ).dropna()
+
+        daily["port_initial"] = daily["long_initial"] - daily["short_initial"]
+        daily["port_drift"] = daily["long_drift"] - daily["short_drift"]
 
     elif portfolio == "long_only":
         d = d[d["signal"] > 0].copy()
 
-        # require at least min_long longs per day (default 1; pass 2 if desired)
         counts = d.groupby("date").size()
         valid_days = counts[counts >= min_long].index
         d = d[d["date"].isin(valid_days)].copy()
 
-        d["port_initial"] = d["initial_reaction"]
-        d["port_drift"]   = d["drift"]
+        daily = (
+            d.groupby("date")[["initial_reaction", "drift"]]
+            .mean()
+            .rename(columns={
+                "initial_reaction": "port_initial",
+                "drift": "port_drift"
+            })
+        )
 
     elif portfolio == "short_only":
         d = d[d["signal"] < 0].copy()
 
-        # require at least min_short shorts per day (default 1; pass 2 if desired)
         counts = d.groupby("date").size()
         valid_days = counts[counts >= min_short].index
         d = d[d["date"].isin(valid_days)].copy()
 
-        # short return = - stock return
-        d["port_initial"] = -d["initial_reaction"]
-        d["port_drift"]   = -d["drift"]
+        daily = (
+            d.groupby("date")[["initial_reaction", "drift"]]
+            .mean()
+            .rename(columns={
+                "initial_reaction": "port_initial",
+                "drift": "port_drift"
+            })
+        )
+
+        # short return = negative stock return
+        daily["port_initial"] = -daily["port_initial"]
+        daily["port_drift"] = -daily["port_drift"]
 
     else:
         raise ValueError("portfolio must be 'long_short', 'long_only', or 'short_only'")
 
-    # Daily equal-weight portfolio return
-    daily = d.groupby("date")[["port_initial", "port_drift"]].mean()
-
-    # Metrics (fractions, not percent)
     hit_initial = (daily["port_initial"] > 0).mean()
-    hit_drift   = (daily["port_drift"] > 0).mean()
+    hit_drift = (daily["port_drift"] > 0).mean()
 
     mean_initial = daily["port_initial"].mean()
-    mean_drift   = daily["port_drift"].mean()
+    mean_drift = daily["port_drift"].mean()
 
-    # Sharpe (annualized) for drift (table reports drift Sharpe)
     vol_drift = daily["port_drift"].std()
     sharpe = np.nan if vol_drift == 0 or np.isnan(vol_drift) else (
         np.sqrt(annualization) * mean_drift / vol_drift
@@ -229,15 +265,14 @@ def calculate_portfolio_metrics(
 
     return {
         "portfolio": portfolio,
-        "firm_day_observations": int(df.drop_duplicates(["ticker", "date"]).shape[0]),
+        "firm_day_observations": int(d.drop_duplicates(["ticker", "date"]).shape[0]),
         "trading_days": int(daily.shape[0]),
-        "hit_rate_initial": float(hit_initial) * 100,  # convert to percent
-        "hit_rate_drift": float(hit_drift) * 100,      # convert to percent
-        "mean_return_initial": float(mean_initial) * 100,  # convert to percent
-        "mean_return_drift": float(mean_drift) * 100,      # convert to percent
-        "sharpe_ratio_drift": float(sharpe) if sharpe == sharpe else np.nan,
+        "hit_rate_initial": float(hit_initial) * 100,
+        "hit_rate_drift": float(hit_drift) * 100,
+        "mean_return_initial": float(mean_initial) * 100,
+        "mean_return_drift": float(mean_drift) * 100,
+        "sharpe_ratio_drift": float(sharpe) if pd.notna(sharpe) else np.nan,
     }
-
 
 
 
