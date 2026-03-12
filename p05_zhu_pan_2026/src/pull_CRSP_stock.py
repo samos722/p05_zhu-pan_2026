@@ -10,8 +10,8 @@ from settings import config
 
 DATA_DIR = Path(config("DATA_DIR"))
 WRDS_USERNAME = config("WRDS_USERNAME")
-START_DATE = config("START_DATE") # 2021-10-01
-END_DATE = config("END_DATE") # 2024-05-31
+START_DATE = config("START_DATE")  # 2024-05-31
+END_DATE = config("END_DATE")  # 2025-12-31
 
 
 def pull_CRSP_daily(
@@ -28,9 +28,9 @@ def pull_CRSP_daily(
     Parameters
     ----------
     start_date : str or datetime-like
-        Sample start date (e.g. '2021-10-01')
+        Sample start date (e.g. '2024-05-31')
     end_date : str or datetime-like
-        Sample end date (e.g. '2024-05-31')
+        Sample end date (e.g. '2025-12-31')
     wrds_username : str
         WRDS username
 
