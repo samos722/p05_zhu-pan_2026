@@ -53,6 +53,13 @@ def clean_taq_nbbo_minute(
             df = df.with_columns(pl.col("sym_root").alias("ticker"))
 
         df = df.select(["date", "ticker", "minute_ts", "mid"]).drop_nulls("mid")
+
+        # Unify schema: date may be String or Date across files
+        if df.schema["date"] == pl.Utf8:
+            df = df.with_columns(pl.col("date").str.to_date().alias("date"))
+        else:
+            df = df.with_columns(pl.col("date").cast(pl.Date).alias("date"))
+
         dfs.append(df)
 
     out = pl.concat(dfs) if len(dfs) > 1 else dfs[0]

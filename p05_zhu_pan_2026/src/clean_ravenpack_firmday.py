@@ -1,15 +1,43 @@
+from datetime import date, timedelta
 from pathlib import Path
 
 import polars as pl
+import pyarrow.parquet as pq
 from rapidfuzz.distance import DamerauLevenshtein
 
 from settings import config
 
 DATA_DIR = Path(config("DATA_DIR"))
+START_DATE = config("START_DATE")
+END_DATE = config("END_DATE")
+if hasattr(START_DATE, "date"):
+    START_DATE = START_DATE.date()
+if hasattr(END_DATE, "date"):
+    END_DATE = END_DATE.date()
 
 RAW_PATH = DATA_DIR / "ravenpack_dj_equities.parquet"
 OUT_PATH = DATA_DIR / "clean" / "news_firmday.parquet"
 OUT_PATH_STORY = DATA_DIR / "clean" / "ravenpack_intraday_story.parquet"
+
+
+def _iter_months() -> list[tuple[date, date]]:
+    """Yield (month_start, month_end) for each month in [START_DATE, END_DATE]."""
+    months = []
+    y, m = START_DATE.year, START_DATE.month
+    end_y, end_m = END_DATE.year, END_DATE.month
+    while (y, m) <= (end_y, end_m):
+        m_start = date(y, m, 1)
+        if m == 12:
+            m_end = date(y, 12, 31)
+            y, m = y + 1, 1
+        else:
+            m_end = date(y, m + 1, 1) - timedelta(days=1)
+            m += 1
+        m_start = max(m_start, START_DATE)
+        m_end = min(m_end, END_DATE)
+        if m_start <= m_end:
+            months.append((m_start, m_end))
+    return months
 
 
 def _trading_date_expr() -> pl.Expr:
@@ -28,6 +56,8 @@ def _trading_date_expr() -> pl.Expr:
 def clean_ravenpack_firmday(
     raw_path: Path = RAW_PATH,
     out_path: Path = OUT_PATH,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ) -> pl.DataFrame:
     """
     Aggregate RavenPack Dow Jones news to firm-day level.
@@ -35,9 +65,10 @@ def clean_ravenpack_firmday(
     - Keep: timestamp_utc, headline, ticker, cusip, rp_story_id, relevance, event_similarity_days
     - Convert timestamp_utc (UTC) to an approximate US trading date
     - Group by (ticker, date) and aggregate headlines and metadata
+    - If start_date/end_date given, only process that range (reduces memory).
     """
-    df = pl.read_parquet(raw_path)
-
+    start_date = start_date or START_DATE
+    end_date = end_date or END_DATE
     cols = [
         "timestamp_utc",
         "headline",
@@ -47,7 +78,15 @@ def clean_ravenpack_firmday(
         "relevance",
         "event_similarity_days",
     ]
-    df = df.select(cols).filter(pl.col("ticker").is_not_null())
+    df = (
+        pl.scan_parquet(raw_path)
+        .select(cols)
+        .filter(pl.col("ticker").is_not_null())
+        .filter(
+            pl.col("timestamp_utc").dt.date().is_between(pl.lit(start_date), pl.lit(end_date))
+        )
+    )
+    df = df.collect()
     df = df.with_columns(_trading_date_expr().alias("date"))
 
     grouped = (
@@ -71,6 +110,8 @@ def clean_ravenpack_firmday(
 def build_news_intraday_story(
     raw_path: Path = RAW_PATH,
     out_path: Path = OUT_PATH_STORY,
+    start_date: date | None = None,
+    end_date: date | None = None,
 ) -> pl.DataFrame:
     """
     Build story-level intraday news table for TAQ join.
@@ -84,12 +125,17 @@ def build_news_intraday_story(
     - is_intraday (9:30–16:00 ET)
     - t15 (timestamp_et + 15 min, floored to minute) — use for TAQ minute join
 
-    Note: ~31M rows, so expect ~1–2 min. Uses LazyFrame for projection pushdown.
+    If start_date/end_date given, only process that range.
     """
+    start_date = start_date or START_DATE
+    end_date = end_date or END_DATE
     df = (
         pl.scan_parquet(raw_path)
         .select(["rp_story_id", "timestamp_utc", "ticker"])
         .filter(pl.col("ticker").is_not_null())
+        .filter(
+            pl.col("timestamp_utc").dt.date().is_between(pl.lit(start_date), pl.lit(end_date))
+        )
     )
 
     # UTC -> ET
@@ -133,14 +179,25 @@ def deduplicate_similar_headlines(
     df_story: pl.DataFrame,
     raw_path: Path = RAW_PATH,
     sim_threshold: float = 0.6,
+    filter_raw_by_story_ids: bool = True,
 ) -> pl.DataFrame:
     """
     Remove duplicate/similar headlines per (ticker, date) per Lopez-Lira, Tang, Zhu (2025).
 
     Uses Optimal String Alignment (Restricted Damerau-Levenshtein); removes subsequent
     headlines with similarity > sim_threshold to any already-kept headline.
+
+    If filter_raw_by_story_ids (default True), only loads headlines for rp_story_ids in df_story.
     """
-    raw = pl.read_parquet(raw_path, columns=["rp_story_id", "headline"])
+    if filter_raw_by_story_ids and len(df_story) > 0:
+        ids = df_story["rp_story_id"].to_list()
+        raw = (
+            pl.scan_parquet(raw_path, columns=["rp_story_id", "headline"])
+            .filter(pl.col("rp_story_id").is_in(ids))
+            .collect()
+        )
+    else:
+        raw = pl.read_parquet(raw_path, columns=["rp_story_id", "headline"])
     df = df_story.join(raw, on="rp_story_id", how="inner")
     # sort by timestamp for "subsequent" order
     df = df.sort(["ticker", "date", "timestamp_et"])
@@ -168,13 +225,67 @@ def deduplicate_similar_headlines(
 
 
 if __name__ == "__main__":
-    df_firmday = clean_ravenpack_firmday()
-    print(f"Saved: {OUT_PATH} | rows={len(df_firmday):,}")
-    df_story = build_news_intraday_story()
-    n_before = len(df_story)
-    df_story = deduplicate_similar_headlines(df_story)
-    n_after = len(df_story)
+    import argparse
+    parser = argparse.ArgumentParser(description="Clean RavenPack: firm-day and intraday story")
+    parser.add_argument(
+        "--step",
+        type=int,
+        choices=[1, 2, 3],
+        default=None,
+        help="Run only step 1 (firmday), 2 (build story by month), or 3 (dedupe by month). Default: all.",
+    )
+    args = parser.parse_args()
+    step = args.step
+
+    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH_STORY.parent.mkdir(parents=True, exist_ok=True)
-    df_story.write_parquet(OUT_PATH_STORY)
-    n_intra = df_story.filter(pl.col("is_intraday")).height
-    print(f"Saved: {OUT_PATH_STORY} | rows={n_after:,} (dropped {n_before - n_after:,} similar, intraday={n_intra:,})")
+
+    if step is None or step == 1:
+        df_firmday = clean_ravenpack_firmday()
+        print(f"Saved: {OUT_PATH} | rows={len(df_firmday):,}")
+
+    if step is None or step == 2:
+        schema = None
+        writer = None
+        for m_start, m_end in _iter_months():
+            df = build_news_intraday_story(start_date=m_start, end_date=m_end)
+            if len(df) == 0:
+                continue
+            tbl = df.to_arrow()
+            if schema is None:
+                schema = tbl.schema
+                writer = pq.ParquetWriter(OUT_PATH_STORY, schema)
+            writer.write_table(tbl)
+            print(f"  Step 2: {m_start}–{m_end} -> {len(df):,} rows")
+        if writer is not None:
+            writer.close()
+            print(f"Saved: {OUT_PATH_STORY} (step 2)")
+
+    if step is None or step == 3:
+        total_before = total_after = total_intra = 0
+        writer = None
+        schema = None
+        step3_out = OUT_PATH_STORY.parent / (OUT_PATH_STORY.stem + "_deduped.parquet")
+        for m_start, m_end in _iter_months():
+            df = pl.scan_parquet(OUT_PATH_STORY).filter(
+                pl.col("date").is_between(pl.lit(m_start), pl.lit(m_end))
+            ).collect()
+            if len(df) == 0:
+                continue
+            n_before = len(df)
+            df = deduplicate_similar_headlines(df)
+            n_after = len(df)
+            total_before += n_before
+            total_after += n_after
+            total_intra += df.filter(pl.col("is_intraday")).height
+            tbl = df.to_arrow()
+            if schema is None:
+                schema = tbl.schema
+                writer = pq.ParquetWriter(step3_out, schema)
+            writer.write_table(tbl)
+            print(f"  Step 3: {m_start}–{m_end} dropped {n_before - n_after:,}")
+        if writer is not None:
+            writer.close()
+            step3_out.replace(OUT_PATH_STORY)
+        print(f"Saved: {OUT_PATH_STORY} | rows={total_after:,} (dropped {total_before - total_after:,} similar, intraday={total_intra:,})")
+
