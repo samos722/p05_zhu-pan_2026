@@ -266,7 +266,7 @@ def calculate_portfolio_metrics(
 
     return {
         "portfolio": portfolio,
-        "firm_day_observations": int(d.drop_duplicates(["ticker", "date"]).shape[0]),
+        "firm_day_observations": int(d.shape[0]),
         "trading_days": int(daily.shape[0]),
         "hit_rate_initial": float(hit_initial) * 100,
         "hit_rate_drift": float(hit_drift) * 100,

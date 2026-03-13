@@ -105,41 +105,6 @@ def task_pull_CRSP_stock():
     }
 
 
-def task_pull_ravenpack_dj():
-    """Pull Ravenpack data from WRDS and save to disk"""
-
-    return {
-        "actions": [
-            "python src/settings.py",
-            "python src/pull_ravenpack_dj.py",
-        ],
-        "targets": [
-            Path(DATA_DIR) / "ravenpack_dj_equities.parquet",
-        ],
-        "file_dep": [
-            "./src/settings.py",
-            "./src/pull_ravenpack_dj.py",
-        ],
-        "verbosity": 2,  # Print everything immediately. This is important in
-        # case WRDS asks for credentials.
-    }
-
-
-def task_generate_exploratory_charts():
-    return {
-        "actions": ["python src/generate_chart.py"],
-        "file_dep": [
-            "_data/CRSP_daily_stock.parquet",
-            "_data/ravenpack_dj_equities.parquet",
-        ],
-        "targets": [
-            "_output/crsp_price_timeseries.html",
-            "_output/ravenpack_sentiment_timeseries.html",
-        ],
-        "clean": True,
-    }
-
-
 def task_clean_crsp_daily():
     """
     Clean CRSP daily stock data:
@@ -163,25 +128,53 @@ def task_clean_crsp_daily():
         "verbosity": 2,
     }
 
-def task_clean_ravenpack_firmday():
-    """
-    Build firm-day news table:
-    _data/ravenpack_dj_equities.parquet -> _data/clean/news_firmday.parquet
-    """
-    raw_path = DATA_DIR / "ravenpack_dj_equities.parquet"
-    out_path = DATA_DIR / "clean" / "news_firmday.parquet"
+
+def task_pull_ravenpack_dj():
+    """Pull Ravenpack data from WRDS and save to disk"""
 
     return {
         "actions": [
-            "python src/clean_ravenpack.py",  # runs both in __main__, see note below
+            "python src/settings.py",
+            "python src/pull_ravenpack_dj.py",
+        ],
+        "targets": [
+            Path(DATA_DIR) / "ravenpack_dj_equities.parquet",
         ],
         "file_dep": [
-            "src/clean_ravenpack.py",
+            "./src/settings.py",
+            "./src/pull_ravenpack_dj.py",
+        ],
+        "verbosity": 2,  # Print everything immediately. This is important in
+        # case WRDS asks for credentials.
+    }
+
+
+
+def task_clean_ravenpack():
+    """
+    Clean RavenPack news data.
+
+    _data/ravenpack_dj_equities.parquet
+        -> _data/clean/news_firmday.parquet
+        -> _data/clean/ravenpack_intraday_story.parquet
+    """
+
+    raw_path = DATA_DIR / "ravenpack_dj_equities.parquet"
+    out_firmday = DATA_DIR / "clean" / "news_firmday.parquet"
+    out_story = DATA_DIR / "clean" / "ravenpack_intraday_story.parquet"
+
+    return {
+        "actions": [
+            "python src/clean_ravenpack_firmday.py",
+        ],
+        "file_dep": [
+            "src/clean_ravenpack_firmday.py",
             "src/settings.py",
             str(raw_path),
         ],
         "targets": [
-            str(out_path),
+            str(out_firmday),
+            str(out_story),
         ],
         "verbosity": 2,
     }
