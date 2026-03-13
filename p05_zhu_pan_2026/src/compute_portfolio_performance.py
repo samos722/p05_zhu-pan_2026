@@ -8,8 +8,8 @@ import webbrowser
 from settings import config
 
 DATA_DIR = Path(config("DATA_DIR"))
-SAMPLE_START = "2021-10-01"
-SAMPLE_END = "2024-05-31"
+SAMPLE_START = "2024-05-31"
+SAMPLE_END = "2025-12-31"
 
 
 def _get_taq_trading_dates() -> pd.Series:
@@ -450,8 +450,8 @@ if __name__ == "__main__":
     performance_table = build_performance_table(results)
     styled_table = style_performance_table(performance_table)
 
-    output_dir = Path("_output")
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path(config("OUTPUT_DIR")).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     html_path = output_dir / "performance_table.html"
     tex_path = output_dir / "performance_table.tex"

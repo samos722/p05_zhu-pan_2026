@@ -4,7 +4,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
-DATA_DIR = Path("_data")
+from settings import config
+
+DATA_DIR = Path(config("DATA_DIR")).resolve()
 
 def _divide_intraday_overnight():
     """Split intraday portfolio returns into intraday and overnight components."""
@@ -310,8 +312,8 @@ def long_short_top_percentile(df, pct=0.10):
 
 
 def plot_like_paper(cumret_long_short, cumret_not_small, cumret_price5, cumret_market):
-    # Restrict sample through end of March 2024
-    end_date = pd.Timestamp("2024-03-31")
+    # Restrict sample through end of December 2025
+    end_date = pd.Timestamp("2025-12-31")
     cumret_long_short = cumret_long_short.loc[cumret_long_short.index <= end_date]
     cumret_not_small = cumret_not_small.loc[cumret_not_small.index <= end_date]
     cumret_price5 = cumret_price5.loc[cumret_price5.index <= end_date]
@@ -400,8 +402,8 @@ def plot_like_paper(cumret_long_short, cumret_not_small, cumret_price5, cumret_m
 
     fig.tight_layout()
 
-    output_dir = Path("_output")
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path(config("OUTPUT_DIR")).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_dir / "cumulative_returns_paper_style.png", dpi=300, bbox_inches="tight")
 
     plt.show()

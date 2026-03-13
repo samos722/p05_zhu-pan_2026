@@ -10,8 +10,8 @@ from settings import config
 
 DATA_DIR = Path(config("DATA_DIR"))
 WRDS_USERNAME = config("WRDS_USERNAME")
-START_DATE = config("START_DATE")  # 2021-10-01
-END_DATE = config("END_DATE")  # 2024-05-31
+START_DATE = config("START_DATE")  # 2024-05-31
+END_DATE = config("END_DATE")  # 2025-12-31
 CRSP_PATH = DATA_DIR / "CRSP_daily_stock.parquet"
 
 
