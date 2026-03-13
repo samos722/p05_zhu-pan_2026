@@ -4,6 +4,8 @@
 \usepackage{graphicx}
 \usepackage{float}
 \usepackage{booktabs}
+\usepackage{float}
+\usepackage{placeins}
 
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.8em}
@@ -22,17 +24,54 @@
 This project investigates whether large language models, specifically ChatGPT, can forecast stock price movements by analyzing firm-level news headlines. The central idea is that news sentiment, as interpreted by a language model, can provide information about future stock returns. By classifying news as positive, neutral, or negative, it is possible to construct long and short portfolios and evaluate whether these signals produce abnormal returns.
 
 The goal of this study is to assess the predictive power of language model-generated sentiment labels in a systematic trading strategy. In particular, the project focuses on constructing a trading strategy using sentiment-labeled news headlines and evaluating the resulting portfolio performance over time.
+
 \section{Data Sources}
 
 The replication project combines multiple datasets to construct the trading strategy.
 
-First, stock return data were obtained from CRSP-based daily equity data. These data provide information about stock prices and returns that are necessary to calculate portfolio performance.
+First, stock return data were obtained from CRSP-based daily equity data. These data provide information on daily stock prices, including opening and closing prices, which are used to compute next-day returns for news events released outside of trading hours.
 
-Second, the project uses firm-level news data from RavenPack. RavenPack provides timestamped news events associated with individual firms. These timestamps are critical for determining when the news becomes available to the market and for aligning news events with tradable return windows.
+Second, intraday price data were obtained from the TAQ (Trade and Quote) database. TAQ provides high-frequency transaction and quote information during trading hours. These data are used to calculate intraday returns for news events released during market hours, allowing us to measure the immediate price reaction to news announcements.
 
-Third, the project uses sentiment labels generated from GPT-based text classification. Each headline is categorized into sentiment classes such as positive or negative. These labels are then translated into trading signals that determine whether a stock enters the long or short side of the portfolio.
+Third, news event data were obtained from the RavenPack database, which provides structured information on financial news, including the timestamp of each news release and the associated firm ticker. The timestamps allow us to determine whether a news event occurs during trading hours or outside of trading hours, which determines whether intraday or next-day returns are used.
 
-Combining these datasets allows the strategy to test whether sentiment extracted from textual news data contains predictive information about future stock returns.
+Finally, the dataset includes sentiment labels generated using a large language model. These labels classify each news headline as either positive (YES), negative (NO), or neutral (UNKNOWN) with respect to expected stock price movements. These classifications are used to construct trading signals for the long-short, long-only, and short-only portfolios.
+
+\section{Data Exploration}
+
+Before constructing the trading strategy, we conduct a brief exploratory analysis of the main datasets used in the replication. The purpose of this section is to illustrate the characteristics of each data source and provide a basic overview of the information contained in the datasets.
+
+\FloatBarrier
+Table~\ref{tab:crsp_summary} reports summary statistics of the CRSP daily equity dataset used in the analysis. The table summarizes key variables including daily returns, opening prices, closing prices, trading volume, and market capitalization. The statistics show that daily stock returns are centered around zero, while stock prices and market capitalization vary substantially across firms, reflecting the diversity of firms in the sample.
+
+\input{../_output/crsp_summary_stats.tex}
+
+Figure~\ref{fig:taq_intraday_example} illustrates an example intraday mid-price path constructed from the TAQ minute-level quote data for a representative stock on a single trading day. The figure demonstrates the high-frequency nature of the TAQ dataset and shows how prices evolve throughout the trading day.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../_output/taq_intraday_midprice_example.png}
+\caption{Example intraday mid-price path constructed from TAQ minute-level quote data.}
+\label{fig:taq_intraday_example}
+\end{figure}
+
+Figure~\ref{fig:ravenpack_news_flow} presents the number of RavenPack news events per day over the sample period. The figure illustrates that the arrival of firm-specific news varies substantially across days, reflecting periods of higher and lower information flow in financial markets.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.8\textwidth]{../_output/ravenpack_news_per_day.png}
+\caption{Daily number of RavenPack news events over the sample period.}
+\label{fig:ravenpack_news_flow}
+\end{figure}
+
+Finally, Figure~\ref{fig:gpt_label_distribution} shows the distribution of sentiment labels generated by the language model. Each news headline is classified as positive (YES), negative (NO), or unknown (UNKNOWN). These classifications form the trading signals used to construct the long and short portfolios.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\textwidth]{../_output/gpt_label_distribution.png}
+\caption{Distribution of sentiment labels generated by the language model.}
+\label{fig:gpt_label_distribution}
+\end{figure}
 
 \section{Methodology}
 
@@ -50,7 +89,7 @@ This section reports the main empirical outputs generated by the replication cod
 
 \subsection{Performance Summary}
 
-Table 1 reports summary statistics for the replicated trading strategy.
+Table~\ref{tab:performance} reports summary statistics for the replicated trading strategy.
 
 \begin{table}[H]
 \centering
@@ -68,7 +107,7 @@ The table summarizes key performance metrics for the strategy, including average
 
 \subsection{Cumulative Returns}
 
-Figure 1 shows the cumulative return of the strategy over time.
+Figure~\ref{fig:cumret} shows the cumulative return of the strategy over time.
 
 \begin{figure}[H]
 \centering
