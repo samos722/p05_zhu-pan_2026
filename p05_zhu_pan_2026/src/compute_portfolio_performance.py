@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from nbconvert import export
 import numpy as np
 import pandas as pd
 import webbrowser
@@ -452,9 +453,38 @@ if __name__ == "__main__":
     output_dir = Path("_output")
     output_dir.mkdir(exist_ok=True)
 
-    output_path = output_dir / "performance_table.html"
+    html_path = output_dir / "performance_table.html"
+    tex_path = output_dir / "performance_table.tex"
 
-    styled_table.to_html(output_path)
+    # Save HTML version for browser viewing
+    styled_table.to_html(html_path)
 
-    # convert to absolute path
-    webbrowser.open(output_path.resolve().as_uri())
+    latex_table = performance_table.copy().fillna("--").reset_index(drop=True)
+
+    latex_table.columns = [
+        "Portfolio Group",
+        "Metric",
+        "Overnight Initial Reaction",
+        "Overnight Drift",
+        "Intraday Initial Reaction",
+        "Intraday Drift",
+    ]
+
+    latex_table["Portfolio Group"] = latex_table["Portfolio Group"].replace({
+        "Long-Short Portfolio": "Long-Short",
+        "Long-Only Portfolio": "Long-Only",
+        "Short-Only Portfolio": "Short-Only",
+        "": "All Portfolios"
+    })
+
+    latex_table.to_latex(
+        tex_path,
+        index=False,
+        escape=True,
+        float_format="%.2f",
+        na_rep="--",
+        column_format="llrrrr"
+    )
+
+    # Open HTML table in browser
+    webbrowser.open(html_path.resolve().as_uri())
