@@ -117,6 +117,30 @@ Figure~\ref{fig:cumret} shows the cumulative return of the strategy over time.
 \end{figure}
 
 The cumulative return plot provides a visual representation of how the strategy performs through time. It illustrates whether the trading signals generate consistent performance or whether returns are concentrated in particular periods.
+\section{Reproduction Results}
+
+We successfully reproduce Table~1 and Figure~5 across three sample periods: the replication period (2021-10 to 2024-05), the extended period (2024-05 to 2024-12), and the full sample (2021-10 to 2024-12). The long-short portfolio based on news sentiment exhibits positive mean returns and reasonable Sharpe ratios in both overnight and intraday components, consistent with the original paper's findings.
+
+Below we present the performance table and cumulative return figure for the full sample extending through 2024-12-31.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\caption{Performance Summary: Full Sample (2021-10 to 2024-12)}
+\label{tab:performance_full}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.1}
+\resizebox{\textwidth}{!}{%
+\input{../_output/performance_table_full.tex}
+}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=1.1\textwidth]{../_output/cumulative_returns_paper_style_full.png}
+\caption{Cumulative Returns: Full Sample (2021-10 to 2024-12)}
+\label{fig:cumret_full}
+\end{figure}
 
 \section{Discussion}
 

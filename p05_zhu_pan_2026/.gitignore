@@ -4,8 +4,7 @@
 ##########################
 
 # Exclude _data folder, since it should all be pulled automatically (unless in the manual folder)
-# Commented out to include data in repo for GitHub upload
-# /_data/*
+/_data/
 
 # Exclude _output directory since it's should generated automatically
 # Commented out to include output in repo for GitHub upload
