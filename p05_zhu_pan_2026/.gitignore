@@ -3,22 +3,11 @@
 # Project Input and Output
 ##########################
 
-# Exclude _data contents but keep empty folder structure (via .gitkeep)
-/_data/*
-!/_data/.gitkeep
-!/_data/clean/
-/_data/clean/*
-!/_data/clean/.gitkeep
-!/_data/interim/
-/_data/interim/*
-!/_data/interim/.gitkeep
-!/_data/taqm_nbbo/
-/_data/taqm_nbbo/*
-!/_data/taqm_nbbo/.gitkeep
+# Exclude _data folder, since it should all be pulled automatically
+/_data/
 
-# Exclude _output contents but keep empty folder structure
-/_output/*
-!/_output/.gitkeep
+# Exclude _output directory since it's generated automatically by doit
+/_output/
 
 # Exclude PDFs generated from source LaTeX files, which are kept in the reports directory
 /reports/*.pdf
