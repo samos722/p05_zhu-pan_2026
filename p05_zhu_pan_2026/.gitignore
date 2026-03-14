@@ -6,9 +6,8 @@
 # Exclude _data folder, since it should all be pulled automatically (unless in the manual folder)
 /_data/
 
-# Exclude _output directory since it's should generated automatically
-# Commented out to include output in repo for GitHub upload
-# /_output/*
+# Exclude _output directory since it's generated automatically by doit
+/_output/
 
 # Exclude PDFs generated from source LaTeX files, which are kept in the reports directory
 /reports/*.pdf
