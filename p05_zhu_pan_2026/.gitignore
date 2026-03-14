@@ -12,6 +12,8 @@
 
 # Exclude PDFs generated from source LaTeX files, which are kept in the reports directory
 /reports/*.pdf
+# Exception: include replication report PDF for submission
+!/reports/replication_report.pdf
 
 # Secrets saved in environment files
 .env*
