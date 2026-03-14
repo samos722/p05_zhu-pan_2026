@@ -1,3 +1,4 @@
+"""Unit tests for misc_tools helpers (weighted average, quarter dates, etc.)."""
 import pandas as pd
 
 from misc_tools import (

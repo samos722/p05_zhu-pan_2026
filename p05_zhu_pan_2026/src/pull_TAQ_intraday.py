@@ -1,3 +1,8 @@
+"""Pull TAQ NBBO minute-level data from WRDS for stocks with intraday news.
+
+Filters by dates and tickers with news (from ravenpack_intraday_story).
+Output: _data/taqm_nbbo/nbbo_YYYY-MM-DD.parquet per date. Run on WRDS login node.
+"""
 from __future__ import annotations
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -21,8 +26,8 @@ for _env_path in (_SCRIPT_DIR / ".env", _PROJECT_ROOT / ".env"):
                 os.environ.setdefault(_k.strip(), _v.strip())
 DATA_DIR = Path(os.environ.get("DATA_DIR", str(_PROJECT_ROOT / "_data")))
 WRDS_USERNAME = os.environ.get("WRDS_USERNAME", "samoszhu")
-START_DATE = pd.Timestamp("2024-05-31")
-END_DATE = pd.Timestamp("2025-12-31")
+START_DATE = pd.Timestamp("2021-10-01")
+END_DATE = pd.Timestamp("2024-12-31")
 CRSP_PATH = DATA_DIR / "CRSP_daily_stock.parquet"
 NEWS_FIRMDAY_PATH = DATA_DIR / "clean" / "news_firmday.parquet"
 NEWS_INTRADAY_STORY_PATH = DATA_DIR / "clean" / "ravenpack_intraday_story.parquet"
@@ -122,11 +127,13 @@ def load_symbols_from_crsp(
 
 
 def _taqm_lib_for_date(date_str: str) -> str:
+    """Return TAQM schema name for year, e.g. taqm_2024."""
     yyyy = pd.to_datetime(date_str).year
     return f"taqm_{yyyy}"
 
 
 def _nbbo_table_for_date(date_str: str) -> str:
+    """Return NBBO table name for date, e.g. complete_nbbo_20241015."""
     d = pd.to_datetime(date_str)
     return f"complete_nbbo_{d.strftime('%Y%m%d')}"
 

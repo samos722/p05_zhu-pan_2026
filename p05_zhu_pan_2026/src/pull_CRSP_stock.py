@@ -1,3 +1,8 @@
+"""Pull CRSP daily stock data from WRDS for the replication sample period.
+
+Universe: common stocks (shrcd 10,11), NYSE/NASDAQ/AMEX (exchcd 1,2,3).
+Output: _data/CRSP_daily_stock.parquet.
+"""
 from datetime import datetime
 from pathlib import Path
 
@@ -10,8 +15,8 @@ from settings import config
 
 DATA_DIR = Path(config("DATA_DIR"))
 WRDS_USERNAME = config("WRDS_USERNAME")
-START_DATE = config("START_DATE")  # 2024-05-31
-END_DATE = config("END_DATE")  # 2025-12-31
+START_DATE = config("START_DATE")  # 2021-10-01
+END_DATE = config("END_DATE")  # 2024-12-31 (CRSP max)
 
 
 def pull_CRSP_daily(
@@ -30,7 +35,7 @@ def pull_CRSP_daily(
     start_date : str or datetime-like
         Sample start date (e.g. '2024-05-31')
     end_date : str or datetime-like
-        Sample end date (e.g. '2025-12-31')
+        Sample end date (e.g. '2024-12-31')
     wrds_username : str
         WRDS username
 

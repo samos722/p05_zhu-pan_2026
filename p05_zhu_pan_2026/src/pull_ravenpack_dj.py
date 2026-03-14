@@ -1,3 +1,8 @@
+"""Pull RavenPack RPA 1.0 Equities (Dow Jones + PR Edition) news from WRDS.
+
+Filters to CRSP tickers, relevance threshold, event_similarity_days.
+Output: _data/ravenpack_dj_equities.parquet. Requires pull_CRSP_stock.py first.
+"""
 from pathlib import Path
 import time
 
@@ -10,8 +15,8 @@ from settings import config
 
 DATA_DIR = Path(config("DATA_DIR"))
 WRDS_USERNAME = config("WRDS_USERNAME")
-START_DATE = config("START_DATE")  # 2024-05-31
-END_DATE = config("END_DATE")  # 2025-12-31
+START_DATE = config("START_DATE")  # 2021-10-01
+END_DATE = config("END_DATE")  # 2024-12-31 (CRSP max)
 CRSP_PATH = DATA_DIR / "CRSP_daily_stock.parquet"
 
 

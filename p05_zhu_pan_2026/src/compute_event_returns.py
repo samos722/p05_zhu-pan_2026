@@ -44,6 +44,7 @@ OUT_PORTFOLIO_PATH = DATA_DIR / "clean" / "portfolio_daily.parquet"
 # ---------------------------------------------------------------------------
 
 def load_crsp_prices() -> pl.DataFrame:
+    """Load CRSP daily prices with prev_close and close_next for return computation."""
     df = pl.read_parquet(
         CRSP_PATH, columns=["date", "ticker", "openprc", "closeprc"]
     )
@@ -65,6 +66,7 @@ def load_crsp_prices() -> pl.DataFrame:
 # ---------------------------------------------------------------------------
 
 def compute_event_returns() -> pl.DataFrame:
+    """Build story-level event returns (initial_reaction, drift) from GPT labels, TAQ, CRSP."""
     # --- GPT labels ---
     labels = pl.read_parquet(GPT_LABELS_PATH)
     labels = labels.filter(

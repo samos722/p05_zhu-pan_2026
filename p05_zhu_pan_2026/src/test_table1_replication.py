@@ -1,3 +1,4 @@
+"""Unit tests comparing replication Table 1 metrics to paper benchmarks."""
 import math
 import pytest
 
@@ -106,6 +107,7 @@ def results():
     ],
 )
 def test_table1_metrics_within_tolerance(results, news_type, portfolio, metric, tol):
+    """Check that replication metrics are within tolerance of paper Table 1 benchmarks."""
     actual = results[news_type][portfolio][metric]
     expected = PAPER_TABLE_1[news_type][portfolio][metric]
 

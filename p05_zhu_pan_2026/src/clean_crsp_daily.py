@@ -1,3 +1,8 @@
+"""Clean CRSP daily stock data: filter universe, fix prices, compute market cap.
+
+Input: CRSP_daily_stock.parquet from WRDS.
+Output: _data/clean/crsp_daily.parquet for downstream portfolio and news merging.
+"""
 from pathlib import Path
 
 import polars as pl

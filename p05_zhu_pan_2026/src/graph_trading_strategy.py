@@ -1,17 +1,33 @@
+"""Plot cumulative returns (Figure 5) for the news-based trading strategy.
+
+Long-short, long-only, short-only portfolios; value-weighted benchmark. Uses
+SAMPLE_START, SAMPLE_END, OUTPUT_SUFFIX env vars.
+"""
+import os
 from pathlib import Path
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+
 import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 from settings import config
 
 DATA_DIR = Path(config("DATA_DIR")).resolve()
+SAMPLE_START = os.environ.get("SAMPLE_START", "2024-05-31")
+SAMPLE_END = os.environ.get("SAMPLE_END", "2024-12-31")
+OUTPUT_SUFFIX = os.environ.get("OUTPUT_SUFFIX", "")
 
 def _divide_intraday_overnight():
     """Split intraday portfolio returns into intraday and overnight components."""
     gpt_headlines = pd.read_parquet(DATA_DIR / "interim" / "gpt_labels.parquet")
     ravenpack = pd.read_parquet(DATA_DIR / "clean" / "ravenpack_intraday_story.parquet")
+    ravenpack["date"] = pd.to_datetime(ravenpack["date"])
+    start_ts = pd.Timestamp(SAMPLE_START)
+    end_ts = pd.Timestamp(SAMPLE_END)
+    ravenpack = ravenpack[
+        (ravenpack["date"] >= start_ts) & (ravenpack["date"] <= end_ts)
+    ].copy()
 
     gpt_headlines = gpt_headlines.merge(
         ravenpack,
@@ -32,6 +48,17 @@ def _merge_overnight(overnight_headlines):
     daily_stock["date"] = pd.to_datetime(daily_stock["date"])
     overnight_headlines = overnight_headlines.copy()
     overnight_headlines["date"] = pd.to_datetime(overnight_headlines["date"])
+
+    # Filter to sample date range
+    start_ts = pd.Timestamp(SAMPLE_START)
+    end_ts = pd.Timestamp(SAMPLE_END)
+    daily_stock = daily_stock[
+        (daily_stock["date"] >= start_ts) & (daily_stock["date"] <= end_ts)
+    ].copy()
+    overnight_headlines = overnight_headlines[
+        (overnight_headlines["date"] >= start_ts)
+        & (overnight_headlines["date"] <= end_ts)
+    ].copy()
 
     daily_stock_unique = (
         daily_stock
@@ -95,6 +122,11 @@ def value_weight_market_portfolio():
     daily_stock = pd.read_parquet(DATA_DIR / "clean" / "crsp_daily.parquet").copy()
 
     daily_stock["date"] = pd.to_datetime(daily_stock["date"])
+    start_ts = pd.Timestamp(SAMPLE_START)
+    end_ts = pd.Timestamp(SAMPLE_END)
+    daily_stock = daily_stock[
+        (daily_stock["date"] >= start_ts) & (daily_stock["date"] <= end_ts)
+    ].copy()
 
     # keep needed columns
     daily_stock = daily_stock[["ticker", "date", "ret", "mktcap"]].copy()
@@ -137,6 +169,7 @@ def value_weight_market_portfolio():
 
 
 def long_short_strategy(df):
+    """Compute cumulative return of long-short portfolio (3*long - 2*short) from overnight news."""
     df = df.copy()
     df = df[df["before_open"] | df["after_close"]].copy()
     df = df[df["label"].isin(["YES", "NO"])].copy()
@@ -175,7 +208,7 @@ def long_short_strategy(df):
 
 
 def long_short_not_small(df):
-
+    """Long-short portfolio excluding small caps (above NYSE 20th percentile market cap)."""
     df = df.copy()
     df = df[df["before_open"] | df["after_close"]].copy()
     df = df[df["label"].isin(["YES", "NO"])].copy()
@@ -222,6 +255,7 @@ def long_short_not_small(df):
 
 
 def long_short_greater_5(df):
+    """Long-short portfolio for stocks with price > $5."""
     df = df.copy()
     df = df[df["before_open"] | df["after_close"]].copy()
     df = df[df["label"].isin(["YES", "NO"])].copy()
@@ -312,12 +346,22 @@ def long_short_top_percentile(df, pct=0.10):
 
 
 def plot_like_paper(cumret_long_short, cumret_not_small, cumret_price5, cumret_market):
-    # Restrict sample through end of December 2025
-    end_date = pd.Timestamp("2025-12-31")
-    cumret_long_short = cumret_long_short.loc[cumret_long_short.index <= end_date]
-    cumret_not_small = cumret_not_small.loc[cumret_not_small.index <= end_date]
-    cumret_price5 = cumret_price5.loc[cumret_price5.index <= end_date]
-    cumret_market = cumret_market.loc[cumret_market.index <= end_date]
+    """Plot Figure 5: cumulative returns for long-short variants and market benchmark."""
+    # Restrict sample to SAMPLE_START - SAMPLE_END
+    start_date = pd.Timestamp(SAMPLE_START)
+    end_date = pd.Timestamp(SAMPLE_END)
+    cumret_long_short = cumret_long_short.loc[
+        (cumret_long_short.index >= start_date) & (cumret_long_short.index <= end_date)
+    ]
+    cumret_not_small = cumret_not_small.loc[
+        (cumret_not_small.index >= start_date) & (cumret_not_small.index <= end_date)
+    ]
+    cumret_price5 = cumret_price5.loc[
+        (cumret_price5.index >= start_date) & (cumret_price5.index <= end_date)
+    ]
+    cumret_market = cumret_market.loc[
+        (cumret_market.index >= start_date) & (cumret_market.index <= end_date)
+    ]
 
     # Global style
     plt.rcParams.update({
@@ -373,11 +417,18 @@ def plot_like_paper(cumret_long_short, cumret_not_small, cumret_price5, cumret_m
     ax.xaxis.set_major_locator(mdates.YearLocator())
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
 
-    # Y-axis: log scale
+    # Y-axis: log scale; include all series (some may be below 1 if strategies underperform)
+    all_vals = np.concatenate([
+        cumret_long_short.values,
+        cumret_not_small.values,
+        cumret_price5.values,
+        cumret_market.values,
+    ])
+    all_vals = all_vals[np.isfinite(all_vals) & (all_vals > 0)]
+    y_min = max(0.1, np.min(all_vals) * 0.95) if len(all_vals) > 0 else 0.5
+    y_max = max(10.5, np.max(all_vals) * 1.05) if len(all_vals) > 0 else 10.5
     ax.set_yscale("log")
-    ax.set_ylim(0.7, 10.5)
-    ax.set_yticks([1, 2, 3, 4, 5, 6, 7, 8, 9])
-    ax.set_yticklabels([str(x) for x in [1, 2, 3, 4, 5, 6, 7, 8, 9]])
+    ax.set_ylim(y_min, y_max)
 
     # Labels
     ax.set_xlabel("Date")
@@ -404,7 +455,11 @@ def plot_like_paper(cumret_long_short, cumret_not_small, cumret_price5, cumret_m
 
     output_dir = Path(config("OUTPUT_DIR")).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_dir / "cumulative_returns_paper_style.png", dpi=300, bbox_inches="tight")
+    fig.savefig(
+        output_dir / f"cumulative_returns_paper_style{OUTPUT_SUFFIX}.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
 
     plt.show()
 

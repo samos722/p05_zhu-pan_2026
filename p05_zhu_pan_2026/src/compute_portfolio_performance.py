@@ -1,6 +1,11 @@
+"""Compute portfolio performance metrics and Table 1 for Lopez-Lira, Tang, Zhu (2025).
+
+Splits intraday vs overnight news, merges with CRSP/TAQ, builds long-short portfolios.
+Output: performance_table[OUTPUT_SUFFIX].html/tex. Uses SAMPLE_START, SAMPLE_END env vars.
+"""
+import os
 from pathlib import Path
 
-from nbconvert import export
 import numpy as np
 import pandas as pd
 import webbrowser
@@ -8,8 +13,9 @@ import webbrowser
 from settings import config
 
 DATA_DIR = Path(config("DATA_DIR"))
-SAMPLE_START = "2024-05-31"
-SAMPLE_END = "2025-12-31"
+SAMPLE_START = os.environ.get("SAMPLE_START", "2024-05-31")
+SAMPLE_END = os.environ.get("SAMPLE_END", "2024-12-31")
+OUTPUT_SUFFIX = os.environ.get("OUTPUT_SUFFIX", "")
 
 
 def _get_taq_trading_dates() -> pd.Series:
@@ -163,6 +169,7 @@ def calculate_portfolio_metrics(
     min_short: int = 2,
     annualization: int = 252,
 ) -> dict:
+    """Compute hit rate, mean return, Sharpe ratio for long-short, long-only, or short-only portfolio."""
     d = df.copy()
     d["date"] = pd.to_datetime(d["date"])
     d["signal"] = d["label"].map({"YES": 1, "NO": -1, "UNKNOWN": 0})
@@ -278,7 +285,7 @@ def calculate_portfolio_metrics(
 
 
 def _compute_metrics():
-
+    """Compute overnight and intraday portfolio metrics for Table 1."""
     intraday_headlines, overnight_headlines = _divide_intraday_overnight()
 
     overnight_headlines_cleaned = _merge_overnight(overnight_headlines)
@@ -432,6 +439,7 @@ def build_performance_table(results, overnight_obs=None, intraday_obs=None):
 
 
 def style_performance_table(df):
+    """Format performance table for HTML/display (numbers with commas, 2 decimals)."""
     def fmt(x):
         if pd.isna(x):
             return ""
@@ -453,8 +461,8 @@ if __name__ == "__main__":
     output_dir = Path(config("OUTPUT_DIR")).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    html_path = output_dir / "performance_table.html"
-    tex_path = output_dir / "performance_table.tex"
+    html_path = output_dir / f"performance_table{OUTPUT_SUFFIX}.html"
+    tex_path = output_dir / f"performance_table{OUTPUT_SUFFIX}.tex"
 
     # Save HTML version for browser viewing
     styled_table.to_html(html_path)
@@ -481,7 +489,7 @@ if __name__ == "__main__":
         tex_path,
         index=False,
         escape=True,
-        float_format="%.2f",
+        float_format=lambda x: "%.2f" % x if isinstance(x, (int, float)) else x,
         na_rep="--",
         column_format="llrrrr"
     )

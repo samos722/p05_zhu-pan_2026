@@ -1,3 +1,8 @@
+"""Generate data exploration figures and summary stats for the replication report.
+
+Produces: CRSP summary table (LaTeX), TAQ intraday price example, RavenPack news count,
+and GPT label distribution. Outputs go to _output/.
+"""
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -12,6 +17,7 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 # -------------------------------
 
 def explore_crsp():
+    """Generate CRSP summary statistics table (LaTeX) for the report."""
     df = pd.read_parquet(DATA_DIR / "clean" / "crsp_daily.parquet")
 
     cols = ["ret", "openprc", "closeprc", "vol", "mktcap"]
@@ -40,7 +46,7 @@ def explore_crsp():
 # -------------------------------
 
 def explore_taq():
-
+    """Plot example intraday mid-price path for a sample ticker/date."""
     taq = pd.read_parquet(DATA_DIR / "clean" / "taq_nbbo_minute.parquet")
 
     # choose a sample ticker and date
@@ -70,6 +76,7 @@ def explore_taq():
 # -------------------------------
 
 def explore_ravenpack():
+    """Plot daily RavenPack news event count over time."""
     ravenpack = pd.read_parquet(DATA_DIR / "clean" / "ravenpack_intraday_story.parquet")
 
     ravenpack["date"] = pd.to_datetime(ravenpack["date"])
@@ -91,7 +98,7 @@ def explore_ravenpack():
 # -------------------------------
 
 def explore_gpt():
-
+    """Plot distribution of GPT sentiment labels (YES/NO/UNKNOWN)."""
     gpt = pd.read_parquet(DATA_DIR / "interim" / "gpt_labels.parquet")
 
     label_counts = gpt["label"].value_counts()
@@ -114,6 +121,7 @@ def explore_gpt():
 # -------------------------------
 
 def main():
+    """Run all data exploration steps and generate figures."""
     explore_crsp()
     explore_taq()
     explore_ravenpack()

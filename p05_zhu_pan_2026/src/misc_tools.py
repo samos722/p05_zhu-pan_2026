@@ -1,4 +1,4 @@
-"""Collection of miscelaneous tools useful in a variety of situations
+"""Collection of miscellaneous tools useful in a variety of situations
 (not specific to the current project)
 """
 

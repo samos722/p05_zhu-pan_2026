@@ -1,3 +1,9 @@
+"""Clean RavenPack news: aggregate to firm-day, build intraday story table, deduplicate headlines.
+
+Step 1: news_firmday.parquet (ticker, date aggregates).
+Step 2: ravenpack_intraday_story.parquet (story-level with is_intraday, t15).
+Step 3: Deduplicate similar headlines per (ticker, date) using Damerau-Levenshtein.
+"""
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -192,7 +198,8 @@ def deduplicate_similar_headlines(
     if filter_raw_by_story_ids and len(df_story) > 0:
         ids = df_story["rp_story_id"].to_list()
         raw = (
-            pl.scan_parquet(raw_path, columns=["rp_story_id", "headline"])
+            pl.scan_parquet(raw_path)
+            .select(["rp_story_id", "headline"])
             .filter(pl.col("rp_story_id").is_in(ids))
             .collect()
         )
@@ -240,6 +247,8 @@ if __name__ == "__main__":
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUT_PATH_STORY.parent.mkdir(parents=True, exist_ok=True)
 
+    all_months = list(_iter_months())
+
     if step is None or step == 1:
         df_firmday = clean_ravenpack_firmday()
         print(f"Saved: {OUT_PATH} | rows={len(df_firmday):,}")
@@ -247,7 +256,7 @@ if __name__ == "__main__":
     if step is None or step == 2:
         schema = None
         writer = None
-        for m_start, m_end in _iter_months():
+        for m_start, m_end in all_months:
             df = build_news_intraday_story(start_date=m_start, end_date=m_end)
             if len(df) == 0:
                 continue
@@ -266,7 +275,7 @@ if __name__ == "__main__":
         writer = None
         schema = None
         step3_out = OUT_PATH_STORY.parent / (OUT_PATH_STORY.stem + "_deduped.parquet")
-        for m_start, m_end in _iter_months():
+        for m_start, m_end in all_months:
             df = pl.scan_parquet(OUT_PATH_STORY).filter(
                 pl.col("date").is_between(pl.lit(m_start), pl.lit(m_end))
             ).collect()
@@ -287,5 +296,5 @@ if __name__ == "__main__":
         if writer is not None:
             writer.close()
             step3_out.replace(OUT_PATH_STORY)
-        print(f"Saved: {OUT_PATH_STORY} | rows={total_after:,} (dropped {total_before - total_after:,} similar, intraday={total_intra:,})")
+            print(f"Saved: {OUT_PATH_STORY} | rows={total_after:,} (dropped {total_before - total_after:,} similar, intraday={total_intra:,})")
 
